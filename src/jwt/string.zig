@@ -40,6 +40,7 @@ pub const String = struct {
     }
 
     pub fn concat(self: *Self, string: []const u8) !void {
+        //std.log.info("{s}", .{string});
         if (self.buffer) |buffer| {
             try self.allocate(buffer.len + string.len);
             if (self.buffer) |buf| {
@@ -72,6 +73,10 @@ pub const String = struct {
 };
 
 const assert = std.debug.assert;
+
+test "basiscs" {
+    std.testing.refAllDecls(@This());
+}
 
 test "test" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
