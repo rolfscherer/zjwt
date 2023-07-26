@@ -162,8 +162,8 @@ fn decodeHeader(jwt: *Jwt, alg: Algorithm, headerBase64: []const u8, decodedToke
         }
     }
 
-    if (decodeOptions.headerValidator) |headerValidator| {
-        try validator.validate(headerObject, headerValidator.validatorItems);
+    if (decodeOptions.headerValidator) |*headerValidator| {
+        try headerValidator.validate(headerObject);
     }
 }
 

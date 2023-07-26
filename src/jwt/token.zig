@@ -130,7 +130,7 @@ pub fn addExpiresAt(token: *Token, durationInSeconds: i64) !void {
     try token.payload.put(Claims.EXPIRES_AT, .{ .integer = getTimestamp(durationInSeconds) });
 }
 
-pub fn addNotBefore(token: *Token, durationInSeconds: i64) void {
+pub fn addNotBefore(token: *Token, durationInSeconds: i64) !void {
     try token.payload.put(Claims.NOT_BEFORE, .{ .integer = getTimestamp(durationInSeconds) });
 }
 
