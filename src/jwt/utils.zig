@@ -12,6 +12,6 @@ pub fn getSecondsFromDays(num: i64) i64 {
     return num * 60 * 60 * 24;
 }
 
-test {
+test "basics" {
     std.testing.refAllDecls(@This());
 }

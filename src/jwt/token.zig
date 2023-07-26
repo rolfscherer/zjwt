@@ -2,6 +2,7 @@ const std = @import("std");
 const hmac = std.crypto.auth.hmac;
 const json = std.json;
 const mem = std.mem;
+const ecdsa = std.crypto.sign.ecdsa;
 
 const claims = @import("claims.zig");
 const headers = @import("headers.zig");
@@ -24,6 +25,8 @@ pub const Algorithm = enum {
     HS256,
     HS384,
     HS512,
+    ES256,
+    ES384,
 
     pub fn phrase(self: Algorithm) []const u8 {
         return switch (self) {
@@ -36,6 +39,8 @@ pub const Algorithm = enum {
             .HS256 => hmac.sha2.HmacSha256.mac_length,
             .HS384 => hmac.sha2.HmacSha384.mac_length,
             .HS512 => hmac.sha2.HmacSha512.mac_length,
+            .ES256 => ecdsa.EcdsaP256Sha256.Signature.encoded_length,
+            .ES384 => ecdsa.EcdsaP384Sha384.Signature.encoded_length,
         };
     }
 };
@@ -185,6 +190,6 @@ pub fn getTimestamp(deltaInSeconds: i64) i64 {
     return std.time.timestamp() + deltaInSeconds;
 }
 
-test "basiscs" {
+test "basics" {
     std.testing.refAllDecls(@This());
 }

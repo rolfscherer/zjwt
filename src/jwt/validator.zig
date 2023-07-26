@@ -31,6 +31,15 @@ pub fn createDefaultHeaderValidator(allocator: Allocator, algorithm: []const u8)
     return validator;
 }
 
+pub fn createDefaultPayloadValidator(allocator: Allocator, issuer: []const u8) !Validator {
+    var validator = Validator.init(allocator);
+
+    try validator.addExpiresAtValidator();
+    try validator.addValidator(Claims.ISSUER, .{ .eq = .{ .string = issuer } });
+
+    return validator;
+}
+
 pub fn init(allocator: Allocator) Validator {
     return .{
         .allocator = allocator,
@@ -146,7 +155,7 @@ fn in(a: Value, b: Value) !bool {
     }
 }
 
-test "basiscs" {
+test "basics" {
     std.testing.refAllDecls(@This());
 }
 
@@ -174,7 +183,7 @@ test "expect no error. header validator " {
     try std.testing.expectEqual({}, validator.validate(objectMap));
 }
 
-test "eq noteq Tests" {
+test "eq and noteq Tests" {
     var vis = ValidatorItems.init(std.testing.allocator);
     defer vis.deinit();
 

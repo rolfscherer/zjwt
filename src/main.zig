@@ -1,6 +1,6 @@
 const std = @import("std");
 const utils = @import("jwt/utils.zig");
-
+const cert_utils = @import("jwt/cert_utils.zig");
 const jwt = @import("jwt.zig").Jwt;
 const Jwt = jwt.Jwt;
 const validator = jwt.validator;
@@ -12,21 +12,35 @@ var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 12 }){};
 const allocator = gpa.allocator();
 
 pub fn main() !void {
+    var certUtils = cert_utils.CertUtils.init(allocator);
+    defer certUtils.deinit();
+
+    try certUtils.loadCertificates();
+
     var j = Jwt.init(allocator);
 
     const alg = Algorithm.HS512;
+    const issuer = "Allerate";
 
     var token = jwt.Token.init(allocator);
     defer token.deinit();
 
     try token.createDefaultHeader(alg);
-    try token.addIssuer("Allerate");
+    try token.addIssuer(issuer);
     try token.addSubject("Jwt");
     try token.addIssuedAt();
     try token.addExpiresAt(utils.getSecondsFromDays(1));
     try token.addPayload("name", .{ .string = "John Allerate" });
     try token.addPayload("admin", .{ .bool = true });
     try token.addPayload("slot", .{ .integer = 2 });
+
+    var roles = std.ArrayList(Value).init(allocator);
+    defer roles.deinit();
+
+    try roles.append(.{ .string = "root" });
+    try roles.appendSlice(&[_]Value{ .{ .string = "admin" }, .{ .string = "user" } });
+
+    try token.addPayload("roles", .{ .array = roles });
 
     var tokenBase64 = try j.encode(alg, .{ .key = "veryS3cret:-)" }, &token);
 
@@ -35,30 +49,27 @@ pub fn main() !void {
     var headerValidator = try validator.createDefaultHeaderValidator(allocator, alg.phrase());
     defer headerValidator.deinit();
 
+    var payloadValidator = try validator.createDefaultPayloadValidator(allocator, issuer);
+
+    var array = std.ArrayList(Value).init(allocator);
+    try array.appendSlice(&[_]Value{.{ .integer = 1 }});
+    try payloadValidator.addValidator("slot", .{ .in = .{ .array = array } });
+
     token.reset();
     try j.decode(alg, .{ .key = "veryS3cret:-)" }, .{
         .saveHeader = true,
+        .savePayload = true,
         .headerValidator = headerValidator,
+        .payloadValidator = payloadValidator,
     }, tokenBase64, &token);
 
-    // try token.addExpiresAtValidator();
+    var keys = token.payload.keys();
 
-    // var array = std.ArrayList(Value).init(allocator);
-    // try array.append(.{ .integer = 1 });
-    // try array.append(.{ .integer = 2 });
-    // try array.append(.{ .integer = 3 });
-
-    // var v: Value = .{ .array = array };
-    // var vo = jwt.ValidatorOp{ .in = v };
-    // try token.addValidator("slot", vo);
-
-    // var vo2 = jwt.ValidatorOp{ .storeValue = jwt.TokenClaim.init(allocator) };
-    // defer vo2.storeValue.deinit();
-    // try token.addValidator("name", vo2);
-
-    // try token.decode(Algorithm.HS512, .{ .key = "veryS3cret:-)" }, encodedToken.str());
-
-    //std.log.info("{s}", .{vo2.storeValue.string.str()});
+    for (keys) |key| {
+        if (token.payload.get(key)) |value| {
+            std.log.info("Key: {s} value: {}", .{ key, value });
+        }
+    }
 }
 
 test "all tests" {

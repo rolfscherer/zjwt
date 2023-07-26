@@ -1,0 +1,10 @@
+RSA
+openssl req -x509 -newkey rsa:4096 -keyout rsa_256_key.pem -out rsa_256_cert.pem -sha256 -days 3650 -nodes -subj "/C=ch/ST=Bern/L=Lyss/O=Allerate/OU=rsa_256/CN=allerate.ch"
+
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -x509 -nodes -days 3650 -out ecdsa_prime256v1_cert.pem -keyout ecdsa_prime256v1_key.pem -subj "/C=ch/ST=Bern/L=Lyss/O=Allerate/OU=ecdsa_prime256v1/CN=allerate.ch"
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -x509 -nodes -days 3650 -out ecdsa_secp384r1_cert.pem -keyout ecdsa_secp384r1_key.pem -subj "/C=ch/ST=Bern/L=Lyss/O=Allerate/OU=ecdsa_secp384r1/CN=allerate.ch"
+
+
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:brainpoolP256r1 -x509 -nodes -days 3650 -out ecdsa_P256_cert.pem -keyout ecdsa_P256_key.pem -subj "/C=ch/ST=Bern/L=Lyss/O=Allerate/OU=ecdsa_P256/CN=allerate.ch"
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:brainpoolP384r1 -x509 -nodes -days 3650 -out ecdsa_P384_cert.pem -keyout ecdsa_P384_key.pem -subj "/C=ch/ST=Bern/L=Lyss/O=Allerate/OU=ecdsa_P384/CN=allerate.ch"
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:brainpoolP512r1 -x509 -nodes -days 3650 -out ecdsa_P512_cert.pem -keyout ecdsa_P512_key.pem -subj "/C=ch/ST=Bern/L=Lyss/O=Allerate/OU=ecdsa_P512/CN=allerate.ch"

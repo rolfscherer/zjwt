@@ -6,6 +6,7 @@ pub const Headers = @import("jwt/headers.zig").Headers;
 const mem = std.mem;
 const json = std.json;
 const hmac = std.crypto.auth.hmac;
+const ecdsa = std.crypto.sign.ecdsa;
 const base64url = std.base64.url_safe_no_pad;
 
 pub const Algorithm = token.Algorithm;
@@ -92,13 +93,19 @@ pub fn encode(jwt: *Jwt, alg: Algorithm, signatureOptions: SignatureOptions, tok
 
 pub fn generateSignature(alg: Algorithm, key: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
     switch (alg) {
-        .HS256 => try generateHmac(hmac.sha2.HmacSha256, key, tokenBase64, buffer),
-        .HS384 => try generateHmac(hmac.sha2.HmacSha384, key, tokenBase64, buffer),
-        .HS512 => try generateHmac(hmac.sha2.HmacSha512, key, tokenBase64, buffer),
+        .HS256 => try generateHmacSignature(hmac.sha2.HmacSha256, key, tokenBase64, buffer),
+        .HS384 => try generateHmacSignature(hmac.sha2.HmacSha384, key, tokenBase64, buffer),
+        .HS512 => try generateHmacSignature(hmac.sha2.HmacSha512, key, tokenBase64, buffer),
+        .ES256 => try generateEcdsSignature(ecdsa.EcdsaP256Sha256),
+        .ES384 => try generateEcdsSignature(ecdsa.EcdsaP384Sha384),
     }
 }
 
-fn generateHmac(hmacFn: anytype, key: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
+fn generateEcdsSignature(ecdsFn: anytype) !void {
+    _ = ecdsFn;
+}
+
+fn generateHmacSignature(hmacFn: anytype, key: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
     var h = hmacFn.init(key);
     h.update(tokenBase64);
     var out: [hmacFn.mac_length]u8 = undefined;
@@ -116,7 +123,7 @@ pub fn decode(jwt: *Jwt, alg: Algorithm, signatureOptions: SignatureOptions, dec
     var item = it.next();
     if (item) |headerBase64| {
         if (decodeOptions.saveHeader or decodeOptions.headerValidator != null) {
-            try jwt.decodeHeader(alg, headerBase64, decodedToken, decodeOptions);
+            try jwt.decodeHeader(headerBase64, decodedToken, decodeOptions);
         }
         try jwtToken.appendSlice(headerBase64);
         try jwtToken.appendSlice(DELIMITER);
@@ -144,8 +151,7 @@ pub fn decode(jwt: *Jwt, alg: Algorithm, signatureOptions: SignatureOptions, dec
     }
 }
 
-fn decodeHeader(jwt: *Jwt, alg: Algorithm, headerBase64: []const u8, decodedToken: *Token, decodeOptions: DecodeOptions) !void {
-    _ = alg;
+fn decodeHeader(jwt: *Jwt, headerBase64: []const u8, decodedToken: *Token, decodeOptions: DecodeOptions) !void {
     var headerJson = try jwt.allocator.alloc(u8, try base64url.Decoder.calcSizeForSlice(headerBase64));
     defer jwt.allocator.free(headerJson);
     try base64url.Decoder.decode(headerJson, headerBase64);
@@ -206,4 +212,5 @@ test {
     _ = @import("jwt/token.zig");
     _ = @import("jwt/utils.zig");
     _ = @import("jwt/validator.zig");
+    _ = @import("jwt/cert_utils.zig");
 }
