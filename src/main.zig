@@ -3,7 +3,9 @@ const utils = @import("jwt/utils.zig");
 
 const jwt = @import("jwt.zig").Jwt;
 const Jwt = jwt.Jwt;
+const validator = jwt.validator;
 const Algorithm = jwt.Algorithm;
+const Validator = jwt.Validator;
 const Value = std.json.Value;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 12 }){};
@@ -12,10 +14,12 @@ const allocator = gpa.allocator();
 pub fn main() !void {
     var j = Jwt.init(allocator);
 
+    const alg = Algorithm.HS512;
+
     var token = jwt.Token.init(allocator);
     defer token.deinit();
 
-    try token.createDefaultHeader(jwt.Algorithm.HS512);
+    try token.createDefaultHeader(alg);
     try token.addIssuer("Allerate");
     try token.addSubject("Jwt");
     try token.addIssuedAt();
@@ -24,11 +28,18 @@ pub fn main() !void {
     try token.addPayload("admin", .{ .bool = true });
     try token.addPayload("slot", .{ .integer = 2 });
 
-    var tokenBase64 = jwt.String.init(allocator);
-    defer tokenBase64.deinit();
-    _ = try j.encode(Algorithm.HS512, .{ .key = "veryS3cret:-)" }, &token, &tokenBase64);
+    var tokenBase64 = try j.encode(alg, .{ .key = "veryS3cret:-)" }, &token);
 
-    std.log.info("{s}", .{tokenBase64.str()});
+    std.log.info("{s}", .{tokenBase64});
+
+    var headerValidator = try validator.createDefaultHeaderValidator(allocator, alg.phrase());
+    defer headerValidator.deinit();
+
+    token.reset();
+    try j.decode(alg, .{ .key = "veryS3cret:-)" }, .{
+        .saveHeader = true,
+        .headerValidator = headerValidator,
+    }, tokenBase64, &token);
 
     // try token.addExpiresAtValidator();
 
