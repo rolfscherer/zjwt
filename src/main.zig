@@ -11,16 +11,10 @@ const Value = std.json.Value;
 var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 12 }){};
 const allocator = gpa.allocator();
 
-pub fn main() !void {
-    var certUtils = cert_utils.CertUtils.init(allocator);
-    defer certUtils.deinit();
+const issuer = "Allerate";
 
-    try certUtils.loadCertificates();
-
+fn createToken(alg: Algorithm, signatureOptions: jwt.SignatureOptions, buffer: *std.ArrayList(u8)) !void {
     var j = Jwt.init(allocator);
-
-    const alg = Algorithm.HS512;
-    const issuer = "Allerate";
 
     var token = jwt.Token.init(allocator);
     defer token.deinit();
@@ -34,17 +28,18 @@ pub fn main() !void {
     try token.addPayload("admin", .{ .bool = true });
     try token.addPayload("slot", .{ .integer = 2 });
 
-    var roles = std.ArrayList(Value).init(allocator);
-    defer roles.deinit();
-
+    var roles = std.ArrayList(Value).init(token.arenaAllocator.allocator());
     try roles.append(.{ .string = "root" });
     try roles.appendSlice(&[_]Value{ .{ .string = "admin" }, .{ .string = "user" } });
-
     try token.addPayload("roles", .{ .array = roles });
 
-    var tokenBase64 = try j.encode(alg, .{ .key = "veryS3cret:-)" }, &token);
+    try buffer.appendSlice(try j.encode(alg, signatureOptions, &token));
+}
 
-    std.log.info("{s}", .{tokenBase64});
+fn vlidateToken(alg: Algorithm, signatureOptions: jwt.SignatureOptions, tokenBase64: []const u8) !void {
+    var j = Jwt.init(allocator);
+    var token = jwt.Token.init(allocator);
+    defer token.deinit();
 
     var headerValidator = try validator.createDefaultHeaderValidator(allocator, alg.phrase());
     defer headerValidator.deinit();
@@ -55,21 +50,32 @@ pub fn main() !void {
     try array.appendSlice(&[_]Value{.{ .integer = 1 }});
     try payloadValidator.addValidator("slot", .{ .in = .{ .array = array } });
 
-    token.reset();
-    try j.decode(alg, .{ .key = "veryS3cret:-)" }, .{
+    try j.decode(alg, signatureOptions, .{
         .saveHeader = true,
         .savePayload = true,
         .headerValidator = headerValidator,
         .payloadValidator = payloadValidator,
     }, tokenBase64, &token);
+}
 
-    var keys = token.payload.keys();
+fn hmacs(alg: jwt.Algorithm) !void {
+    const key = "veryS3cret:-)";
 
-    for (keys) |key| {
-        if (token.payload.get(key)) |value| {
-            std.log.info("Key: {s} value: {}", .{ key, value });
-        }
-    }
+    var token = jwt.Token.init(allocator);
+    defer token.deinit();
+
+    var buffer = std.ArrayList(u8).init(allocator);
+    defer buffer.deinit();
+
+    try createToken(alg, .{ .key = key }, &buffer);
+    std.log.info("{s}", .{buffer.items});
+    try vlidateToken(alg, .{ .key = key }, buffer.items);
+}
+
+pub fn main() !void {
+    try hmacs(Algorithm.HS256);
+    try hmacs(Algorithm.HS384);
+    try hmacs(Algorithm.HS512);
 }
 
 test "all tests" {
