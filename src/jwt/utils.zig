@@ -19,7 +19,7 @@ pub fn getSecondsFromDays(num: i64) i64 {
     return num * 60 * 60 * 24;
 }
 
-pub fn base64Encode(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
+pub fn base64Encoder(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
     const base64 = std.base64.standard.Encoder;
 
     const len = base64.calcSize(source.len);
@@ -28,12 +28,30 @@ pub fn base64Encode(source: []const u8, allocator: mem.Allocator) !std.ArrayList
     return std.ArrayList(u8).fromOwnedSlice(allocator, buffer);
 }
 
-pub fn base64Decode(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
+pub fn base64Decoder(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
     const base64 = std.base64.standard.Decoder;
 
     const len = try base64.calcSizeForSlice(source);
     var buffer = try allocator.alloc(u8, len);
     _ = try base64.decode(buffer, source);
+    return std.ArrayList(u8).fromOwnedSlice(allocator, buffer);
+}
+
+pub fn base64UrlEncoder(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
+    const base64url = std.base64.url_safe_no_pad.Encoder;
+
+    const len = base64url.calcSize(source.len);
+    var buffer = try allocator.alloc(u8, len);
+    _ = base64url.encode(buffer, source);
+    return std.ArrayList(u8).fromOwnedSlice(allocator, buffer);
+}
+
+pub fn base64UrlDecoder(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
+    const base64url = std.base64.url_safe_no_pad.Decoder;
+
+    const len = try base64url.calcSizeForSlice(source);
+    var buffer = try allocator.alloc(u8, len);
+    _ = try base64url.decode(buffer, source);
     return std.ArrayList(u8).fromOwnedSlice(allocator, buffer);
 }
 
@@ -87,7 +105,7 @@ pub fn derToBase64(subPathSource: []const u8, subPathDest: []const u8, allocator
     var source = try readFileRelative(subPathSource, allocator);
     defer source.deinit();
 
-    const base64 = try base64Encode(source.items, allocator);
+    const base64 = try base64Encoder(source.items, allocator);
     defer base64.deinit();
 
     try writeFileRelativeWithMarkers(subPathDest, base64.items, beginMarker, endMarker);
@@ -100,9 +118,9 @@ test "basics" {
 test "base 64 tests" {
     const text = "Hello world!";
 
-    const encoded = try base64Encode(text, std.testing.allocator);
+    const encoded = try base64Encoder(text, std.testing.allocator);
     defer encoded.deinit();
-    const decoded = try base64Decode(encoded.items, std.testing.allocator);
+    const decoded = try base64Decoder(encoded.items, std.testing.allocator);
     defer decoded.deinit();
 
     try std.testing.expectEqual(true, mem.eql(u8, text, decoded.items));

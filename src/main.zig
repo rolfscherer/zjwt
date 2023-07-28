@@ -49,7 +49,7 @@ fn vlidateToken(alg: Algorithm, signatureOptions: jwt.SignatureOptions, tokenBas
     var payloadValidator = try validator.createDefaultPayloadValidator(allocator, issuer);
 
     var array = std.ArrayList(Value).init(allocator);
-    try array.appendSlice(&[_]Value{.{ .integer = 1 }});
+    try array.appendSlice(&[_]Value{ .{ .integer = 1 }, .{ .integer = 2 }, .{ .integer = 3 } });
     try payloadValidator.addValidator("slot", .{ .in = .{ .array = array } });
 
     try j.decode(alg, signatureOptions, .{
@@ -80,16 +80,7 @@ pub fn ecdsaAlg(alg: jwt.Algorithm) !void {
 
     var buffer = std.ArrayList(u8).init(allocator);
     defer buffer.deinit();
-
-    var kp = try ecdsa.EcdsaP256Sha256.KeyPair.create(null);
-    var file = try std.fs.cwd().createFile("pub_key.dat", .{});
-    defer file.close();
-
     const pkf = try key.ECPrivateKey.fromDer("certs/ecdsa_prime256v1_onlypk.der", allocator);
-
-    const sec = kp.public_key.toUncompressedSec1();
-
-    try file.writeAll(&sec);
 
     try createToken(alg, .{ .key = pkf.privateKey }, &buffer);
     std.log.info("{s}", .{buffer.items});
