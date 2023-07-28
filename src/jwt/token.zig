@@ -34,7 +34,7 @@ pub const Algorithm = enum {
         };
     }
 
-    pub fn macLength(self: Self) usize {
+    pub fn signatureLength(self: Self) usize {
         return switch (self) {
             .HS256 => hmac.sha2.HmacSha256.mac_length,
             .HS384 => hmac.sha2.HmacSha384.mac_length,

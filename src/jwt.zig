@@ -79,7 +79,7 @@ pub fn encode(jwt: *Jwt, alg: Algorithm, signatureOptions: SignatureOptions, tok
     //
 
     // calc and encode signature (base 64)
-    var signature = try jwt.allocator.alloc(u8, alg.macLength());
+    var signature = try jwt.allocator.alloc(u8, alg.signatureLength());
     defer jwt.allocator.free(signature);
     try generateSignature(alg, signatureOptions.key, tokenToEncode.tokenBase64.items, signature);
     len = base64url.Encoder.calcSize(signature.len);
@@ -96,13 +96,25 @@ pub fn generateSignature(alg: Algorithm, key: []const u8, tokenBase64: []const u
         .HS256 => try generateHmacSignature(hmac.sha2.HmacSha256, key, tokenBase64, buffer),
         .HS384 => try generateHmacSignature(hmac.sha2.HmacSha384, key, tokenBase64, buffer),
         .HS512 => try generateHmacSignature(hmac.sha2.HmacSha512, key, tokenBase64, buffer),
-        .ES256 => try generateEcdsSignature(ecdsa.EcdsaP256Sha256),
-        .ES384 => try generateEcdsSignature(ecdsa.EcdsaP384Sha384),
+        .ES256 => try generateEcdsSignature(ecdsa.EcdsaP256Sha256, key, tokenBase64, buffer),
+        .ES384 => try generateEcdsSignature(ecdsa.EcdsaP384Sha384, key, tokenBase64, buffer),
     }
 }
 
-fn generateEcdsSignature(ecdsFn: anytype) !void {
-    _ = ecdsFn;
+fn getSecretKey(ecdsFn: anytype, key: []const u8) !ecdsFn.SecretKey {
+    var keyBuffer: [ecdsFn.SecretKey.encoded_length]u8 = undefined;
+    mem.copy(u8, keyBuffer[0..ecdsFn.SecretKey.encoded_length], key);
+    return try ecdsFn.SecretKey.fromBytes(keyBuffer);
+}
+
+fn generateEcdsSignature(ecdsFn: anytype, key: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
+    const secretKey = try getSecretKey(ecdsFn, key);
+    var noise: [ecdsFn.noise_length]u8 = undefined;
+    std.crypto.random.bytes(&noise);
+    const kp = try ecdsFn.KeyPair.fromSecretKey(secretKey);
+    const sig = try kp.sign(tokenBase64, noise);
+
+    mem.copy(u8, buffer[0..ecdsFn.Signature.encoded_length], &sig.toBytes());
 }
 
 fn generateHmacSignature(hmacFn: anytype, key: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
@@ -198,11 +210,29 @@ fn parseAndValidateSignature(jwt: *Jwt, alg: Algorithm, signatureOptions: Signat
     defer jwt.allocator.free(signatureToken);
     try base64url.Decoder.decode(signatureToken, signatureBase64);
 
-    var signatureCalculated = try jwt.allocator.alloc(u8, alg.macLength());
-    defer jwt.allocator.free(signatureCalculated);
-    try generateSignature(alg, signatureOptions.key, tokenBase64, signatureCalculated);
+    switch (alg) {
+        .HS256, .HS384, .HS512 => {
+            var signatureCalculated = try jwt.allocator.alloc(u8, alg.signatureLength());
+            defer jwt.allocator.free(signatureCalculated);
+            try generateSignature(alg, signatureOptions.key, tokenBase64, signatureCalculated);
+            if (!mem.eql(u8, signatureToken, signatureCalculated)) return error.InvalidSignature;
+        },
+        .ES256 => {
+            try validateEcdsSignature(ecdsa.EcdsaP256Sha256, signatureOptions.key, tokenBase64, signatureToken);
+        },
+        else => {},
+    }
+}
 
-    if (!mem.eql(u8, signatureToken, signatureCalculated)) return error.InvalidSignature;
+fn validateEcdsSignature(ecdsFn: anytype, key: []const u8, tokenBase64: []const u8, signatureToken: []const u8) !void {
+    const secretKey = try getSecretKey(ecdsFn, key);
+    const kp = try ecdsFn.KeyPair.fromSecretKey(secretKey);
+
+    var sigBuffer: [ecdsFn.Signature.encoded_length]u8 = undefined;
+    mem.copy(u8, sigBuffer[0..ecdsFn.Signature.encoded_length], signatureToken);
+
+    const sig = ecdsFn.Signature.fromBytes(sigBuffer);
+    try sig.verify(tokenBase64, kp.public_key);
 }
 
 test {
@@ -213,4 +243,6 @@ test {
     _ = @import("jwt/utils.zig");
     _ = @import("jwt/validator.zig");
     _ = @import("jwt/cert_utils.zig");
+    _ = @import("jwt/key.zig");
+    _ = @import("jwt/asn1.zig");
 }
