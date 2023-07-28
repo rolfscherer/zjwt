@@ -1,9 +1,12 @@
 const std = @import("std");
-pub const token = @import("jwt/token.zig");
-pub const validator = @import("jwt/validator.zig");
-pub const utils = @import("jwt/utils.zig");
-pub const Claims = @import("jwt/claims.zig").Claims;
-pub const Headers = @import("jwt/headers.zig").Headers;
+
+pub const Claims = @import("zjwt/claims.zig").Claims;
+pub const Headers = @import("zjwt/headers.zig").Headers;
+pub const token = @import("zjwt/token.zig");
+pub const validator = @import("zjwt/validator.zig");
+pub const utils = @import("zjwt/utils.zig");
+pub const key = @import("zjwt/key.zig");
+
 const mem = std.mem;
 const json = std.json;
 const hmac = std.crypto.auth.hmac;
@@ -103,34 +106,34 @@ pub fn encode(jwt: *Jwt, alg: Algorithm, signatureOptions: SignatureOptions, tok
 }
 
 /// Use the enum to select the signature function
-pub fn generateSignature(alg: Algorithm, key: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
+pub fn generateSignature(alg: Algorithm, secretKey: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
     switch (alg) {
-        .HS256 => try generateHmacSignature(hmac.sha2.HmacSha256, key, tokenBase64, buffer),
-        .HS384 => try generateHmacSignature(hmac.sha2.HmacSha384, key, tokenBase64, buffer),
-        .HS512 => try generateHmacSignature(hmac.sha2.HmacSha512, key, tokenBase64, buffer),
-        .ES256 => try generateEcdsSignature(ecdsa.EcdsaP256Sha256, key, tokenBase64, buffer),
-        .ES384 => try generateEcdsSignature(ecdsa.EcdsaP384Sha384, key, tokenBase64, buffer),
+        .HS256 => try generateHmacSignature(hmac.sha2.HmacSha256, secretKey, tokenBase64, buffer),
+        .HS384 => try generateHmacSignature(hmac.sha2.HmacSha384, secretKey, tokenBase64, buffer),
+        .HS512 => try generateHmacSignature(hmac.sha2.HmacSha512, secretKey, tokenBase64, buffer),
+        .ES256 => try generateEcdsSignature(ecdsa.EcdsaP256Sha256, secretKey, tokenBase64, buffer),
+        .ES384 => try generateEcdsSignature(ecdsa.EcdsaP384Sha384, secretKey, tokenBase64, buffer),
     }
 }
 
-fn getSecretKey(ecdsFn: anytype, key: []const u8) !ecdsFn.SecretKey {
+fn getSecretKey(ecdsFn: anytype, secretKey: []const u8) !ecdsFn.SecretKey {
     var keyBuffer: [ecdsFn.SecretKey.encoded_length]u8 = undefined;
-    mem.copy(u8, keyBuffer[0..ecdsFn.SecretKey.encoded_length], key);
+    mem.copy(u8, keyBuffer[0..ecdsFn.SecretKey.encoded_length], secretKey);
     return try ecdsFn.SecretKey.fromBytes(keyBuffer);
 }
 
-fn generateEcdsSignature(ecdsFn: anytype, key: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
-    const secretKey = try getSecretKey(ecdsFn, key);
+fn generateEcdsSignature(ecdsFn: anytype, secretKey: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
+    const secretKeyInt = try getSecretKey(ecdsFn, secretKey);
     var noise: [ecdsFn.noise_length]u8 = undefined;
     std.crypto.random.bytes(&noise);
-    const kp = try ecdsFn.KeyPair.fromSecretKey(secretKey);
+    const kp = try ecdsFn.KeyPair.fromSecretKey(secretKeyInt);
     const sig = try kp.sign(tokenBase64, noise);
 
     mem.copy(u8, buffer[0..ecdsFn.Signature.encoded_length], &sig.toBytes());
 }
 
-fn generateHmacSignature(hmacFn: anytype, key: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
-    var h = hmacFn.init(key);
+fn generateHmacSignature(hmacFn: anytype, secretKey: []const u8, tokenBase64: []const u8, buffer: []u8) !void {
+    var h = hmacFn.init(secretKey);
     h.update(tokenBase64);
     var out: [hmacFn.mac_length]u8 = undefined;
     h.final(&out);
@@ -187,10 +190,10 @@ fn decodeHeader(jwt: *Jwt, headerBase64: []const u8, decodedToken: *Token, decod
 
     // Checks whether the data should be stored in the token
     if (decodeOptions.saveHeader) {
-        for (headerObject.keys()) |key| {
-            const item = headerObject.get(key);
+        for (headerObject.keys()) |headerKey| {
+            const item = headerObject.get(headerKey);
             if (item) |value| {
-                try decodedToken.cloneAndAddHeader(key, value);
+                try decodedToken.cloneAndAddHeader(headerKey, value);
             }
         }
     }
@@ -209,12 +212,12 @@ fn decodePayload(jwt: *Jwt, payloadBase64: []const u8, decodedToken: *Token, dec
     defer parsed.deinit();
 
     var payloadObject = parsed.value.object;
-    for (payloadObject.keys()) |key| {
-        const item = payloadObject.get(key);
+    for (payloadObject.keys()) |payloadKey| {
+        const item = payloadObject.get(payloadKey);
 
         if (item) |value| {
             if (decodeOptions.savePayload) {
-                try decodedToken.cloneAndAddPayload(key, value);
+                try decodedToken.cloneAndAddPayload(payloadKey, value);
             }
         }
     }
@@ -246,9 +249,9 @@ fn parseAndValidateSignature(jwt: *Jwt, alg: Algorithm, signatureOptions: Signat
     }
 }
 
-fn validateEcdsaSignature(ecdsFn: anytype, key: []const u8, tokenBase64: []const u8, signatureToken: []const u8) !void {
-    const secretKey = try getSecretKey(ecdsFn, key);
-    const kp = try ecdsFn.KeyPair.fromSecretKey(secretKey);
+fn validateEcdsaSignature(ecdsFn: anytype, secretKey: []const u8, tokenBase64: []const u8, signatureToken: []const u8) !void {
+    const secretKeyInt = try getSecretKey(ecdsFn, secretKey);
+    const kp = try ecdsFn.KeyPair.fromSecretKey(secretKeyInt);
 
     var sigBuffer: [ecdsFn.Signature.encoded_length]u8 = undefined;
     mem.copy(u8, sigBuffer[0..ecdsFn.Signature.encoded_length], signatureToken);
@@ -259,12 +262,12 @@ fn validateEcdsaSignature(ecdsFn: anytype, key: []const u8, tokenBase64: []const
 
 test {
     std.testing.refAllDecls(@This());
-    _ = @import("jwt/claims.zig");
-    _ = @import("jwt/headers.zig");
-    _ = @import("jwt/token.zig");
-    _ = @import("jwt/utils.zig");
-    _ = @import("jwt/validator.zig");
-    _ = @import("jwt/cert_utils.zig");
-    _ = @import("jwt/key.zig");
-    _ = @import("jwt/asn1.zig");
+    _ = @import("zjwt/claims.zig");
+    _ = @import("zjwt/headers.zig");
+    _ = @import("zjwt/token.zig");
+    _ = @import("zjwt/utils.zig");
+    _ = @import("zjwt/validator.zig");
+    _ = @import("zjwt/cert_utils.zig");
+    _ = @import("zjwt/key.zig");
+    _ = @import("zjwt/asn1.zig");
 }
