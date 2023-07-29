@@ -6,6 +6,8 @@ pub const token = @import("zjwt/token.zig");
 pub const validator = @import("zjwt/validator.zig");
 pub const utils = @import("zjwt/utils.zig");
 pub const key = @import("zjwt/key.zig");
+pub const cert_utils = @import("zjwt/cert_utils.zig");
+pub const parser = @import("zjwt/asn1/parser.zig");
 
 const mem = std.mem;
 const json = std.json;
@@ -21,7 +23,7 @@ pub const Validator = validator.Validator;
 pub const ValidatorItems = validator.ValidatorItems;
 const Value = json.Value;
 
-pub const Jwt = @This();
+pub const ZJwt = @This();
 
 allocator: Allocator,
 
@@ -55,14 +57,14 @@ pub const DecodeOptions = struct {
     payloadValidator: ?Validator = null,
 };
 
-pub fn init(allocator: Allocator) Jwt {
+pub fn init(allocator: Allocator) ZJwt {
     return .{
         .allocator = allocator,
     };
 }
 
 /// Encodes the token based on the values of the token with the ObjectMaps header and payload and calculates the signature using the algorithm.
-pub fn encode(jwt: *Jwt, alg: Algorithm, signatureOptions: SignatureOptions, tokenToEncode: *Token) ![]const u8 {
+pub fn encode(jwt: *ZJwt, alg: Algorithm, signatureOptions: SignatureOptions, tokenToEncode: *Token) ![]const u8 {
     var bufferJson = std.ArrayList(u8).init(jwt.allocator);
     defer bufferJson.deinit();
 
@@ -141,7 +143,7 @@ fn generateHmacSignature(hmacFn: anytype, secretKey: []const u8, tokenBase64: []
 }
 
 /// Decodes the token and verifies the signature. Further checks are carried out using the DecodeOptions.
-pub fn decode(jwt: *Jwt, alg: Algorithm, signatureOptions: SignatureOptions, decodeOptions: DecodeOptions, tokenBase64: []const u8, decodedToken: *Token) !void {
+pub fn decode(jwt: *ZJwt, alg: Algorithm, signatureOptions: SignatureOptions, decodeOptions: DecodeOptions, tokenBase64: []const u8, decodedToken: *Token) !void {
     var it = mem.splitSequence(u8, tokenBase64, DELIMITER);
 
     var jwtToken = std.ArrayList(u8).init(jwt.allocator);
@@ -180,7 +182,7 @@ pub fn decode(jwt: *Jwt, alg: Algorithm, signatureOptions: SignatureOptions, dec
 }
 
 /// Decodes the header
-fn decodeHeader(jwt: *Jwt, headerBase64: []const u8, decodedToken: *Token, decodeOptions: DecodeOptions) !void {
+fn decodeHeader(jwt: *ZJwt, headerBase64: []const u8, decodedToken: *Token, decodeOptions: DecodeOptions) !void {
     var headerJson = try utils.base64UrlDecoder(headerBase64, jwt.allocator);
     defer headerJson.deinit();
 
@@ -204,7 +206,7 @@ fn decodeHeader(jwt: *Jwt, headerBase64: []const u8, decodedToken: *Token, decod
     }
 }
 
-fn decodePayload(jwt: *Jwt, payloadBase64: []const u8, decodedToken: *Token, decodeOptions: DecodeOptions) !void {
+fn decodePayload(jwt: *ZJwt, payloadBase64: []const u8, decodedToken: *Token, decodeOptions: DecodeOptions) !void {
     var payloadJson = try utils.base64UrlDecoder(payloadBase64, jwt.allocator);
     defer payloadJson.deinit();
 
@@ -228,7 +230,7 @@ fn decodePayload(jwt: *Jwt, payloadBase64: []const u8, decodedToken: *Token, dec
     }
 }
 
-fn parseAndValidateSignature(jwt: *Jwt, alg: Algorithm, signatureOptions: SignatureOptions, signatureBase64: []const u8, tokenBase64: []const u8) !void {
+fn parseAndValidateSignature(jwt: *ZJwt, alg: Algorithm, signatureOptions: SignatureOptions, signatureBase64: []const u8, tokenBase64: []const u8) !void {
     var signatureToken = try jwt.allocator.alloc(u8, try base64url.Decoder.calcSizeForSlice(signatureBase64));
     defer jwt.allocator.free(signatureToken);
     try base64url.Decoder.decode(signatureToken, signatureBase64);

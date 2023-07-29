@@ -20,21 +20,23 @@ pub fn getSecondsFromDays(num: i64) i64 {
 }
 
 pub fn base64Encoder(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
-    const base64 = std.base64.standard.Encoder;
+    const encoder = std.base64.standard.Encoder;
 
-    const len = base64.calcSize(source.len);
+    const len = encoder.calcSize(source.len);
     var buffer = try allocator.alloc(u8, len);
-    _ = base64.encode(buffer, source);
+    _ = encoder.encode(buffer, source);
     return std.ArrayList(u8).fromOwnedSlice(allocator, buffer);
 }
 
 pub fn base64Decoder(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
-    const base64 = std.base64.standard.Decoder;
+    const base64 = std.base64.standard.decoderWithIgnore(" \t\r\n");
 
-    const len = try base64.calcSizeForSlice(source);
-    var buffer = try allocator.alloc(u8, len);
-    _ = try base64.decode(buffer, source);
-    return std.ArrayList(u8).fromOwnedSlice(allocator, buffer);
+    var buffer = try allocator.alloc(u8, source.len);
+    defer allocator.free(buffer);
+    const len = try base64.decode(buffer, source);
+    var array = std.ArrayList(u8).init(allocator);
+    try array.appendSlice(buffer[0..len]);
+    return array;
 }
 
 pub fn base64UrlEncoder(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
@@ -105,10 +107,10 @@ pub fn derToBase64(subPathSource: []const u8, subPathDest: []const u8, allocator
     var source = try readFileRelative(subPathSource, allocator);
     defer source.deinit();
 
-    const base64 = try base64Encoder(source.items, allocator);
-    defer base64.deinit();
+    const b64 = try base64Encoder(source.items, allocator);
+    defer b64.deinit();
 
-    try writeFileRelativeWithMarkers(subPathDest, base64.items, beginMarker, endMarker);
+    try writeFileRelativeWithMarkers(subPathDest, b64.items, beginMarker, endMarker);
 }
 
 test "basics" {

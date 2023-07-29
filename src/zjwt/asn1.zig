@@ -291,3 +291,9 @@ pub const Encoder = struct {
         return idx;
     }
 };
+
+test {
+    std.testing.refAllDecls(@This());
+    _ = @import("asn1/parser.zig");
+    _ = @import("asn1/oids.zig");
+}

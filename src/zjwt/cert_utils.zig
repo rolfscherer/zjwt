@@ -3,7 +3,6 @@ const mem = std.mem;
 const fs = std.fs;
 const crypto = std.crypto;
 const ecdsa = std.crypto.sign.ecdsa;
-const base64 = std.base64.standard.decoderWithIgnore(" \t\r\n");
 const Allocator = mem.Allocator;
 const Certificate = crypto.Certificate;
 const Bundle = crypto.Certificate.Bundle;

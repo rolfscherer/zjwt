@@ -183,7 +183,7 @@ test "expect no error. header validator " {
     try std.testing.expectEqual({}, validator.validate(objectMap));
 }
 
-test "eq and noteq Tests" {
+test "eq and notEq Tests" {
     var vis = ValidatorItems.init(std.testing.allocator);
     defer vis.deinit();
 

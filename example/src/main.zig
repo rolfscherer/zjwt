@@ -3,12 +3,11 @@ const zjwt = @import("zjwt");
 
 const utils = zjwt.utils;
 const cert_utils = zjwt.cert_tils;
-const jwt = zjwt.Jwt;
 const key = zjwt.key;
-const Jwt = jwt.Jwt;
-const validator = jwt.validator;
-const Algorithm = jwt.Algorithm;
-const Validator = jwt.Validator;
+const ZJwt = zjwt.ZJwt;
+const validator = zjwt.validator;
+const Algorithm = zjwt.Algorithm;
+const Validator = zjwt.Validator;
 const Value = std.json.Value;
 const ecdsa = std.crypto.sign.ecdsa;
 
@@ -17,10 +16,10 @@ const allocator = gpa.allocator();
 
 const issuer = "Allerate";
 
-fn createToken(alg: Algorithm, signatureOptions: jwt.SignatureOptions, buffer: *std.ArrayList(u8)) !void {
-    var j = Jwt.init(allocator);
+fn createToken(alg: Algorithm, signatureOptions: zjwt.SignatureOptions, buffer: *std.ArrayList(u8)) !void {
+    var j = ZJwt.init(allocator);
 
-    var token = jwt.Token.init(allocator);
+    var token = zjwt.Token.init(allocator);
     defer token.deinit();
 
     try token.createDefaultHeader(alg);
@@ -40,9 +39,9 @@ fn createToken(alg: Algorithm, signatureOptions: jwt.SignatureOptions, buffer: *
     try buffer.appendSlice(try j.encode(alg, signatureOptions, &token));
 }
 
-fn vlidateToken(alg: Algorithm, signatureOptions: jwt.SignatureOptions, tokenBase64: []const u8) !void {
-    var j = Jwt.init(allocator);
-    var token = jwt.Token.init(allocator);
+fn vlidateToken(alg: Algorithm, signatureOptions: zjwt.SignatureOptions, tokenBase64: []const u8) !void {
+    var j = ZJwt.init(allocator);
+    var token = zjwt.Token.init(allocator);
     defer token.deinit();
 
     var headerValidator = try validator.createDefaultHeaderValidator(allocator, alg.phrase());
@@ -62,10 +61,10 @@ fn vlidateToken(alg: Algorithm, signatureOptions: jwt.SignatureOptions, tokenBas
     }, tokenBase64, &token);
 }
 
-fn hmacs(alg: jwt.Algorithm) !void {
+fn hmacs(alg: zjwt.Algorithm) !void {
     const secretKey = "veryS3cret:-)";
 
-    var token = jwt.Token.init(allocator);
+    var token = zjwt.Token.init(allocator);
     defer token.deinit();
 
     var buffer = std.ArrayList(u8).init(allocator);
@@ -76,8 +75,8 @@ fn hmacs(alg: jwt.Algorithm) !void {
     try vlidateToken(alg, .{ .key = secretKey }, buffer.items);
 }
 
-pub fn ecdsaAlg(alg: jwt.Algorithm) !void {
-    var token = jwt.Token.init(allocator);
+pub fn ecdsaAlg(alg: zjwt.Algorithm) !void {
+    var token = zjwt.Token.init(allocator);
     defer token.deinit();
 
     var buffer = std.ArrayList(u8).init(allocator);
@@ -93,5 +92,6 @@ pub fn main() !void {
     // try hmacs(Algorithm.HS256);
     // try hmacs(Algorithm.HS384);
     // try hmacs(Algorithm.HS512);
+    // try ecdsaAlg(Algorithm.ES256);
     try ecdsaAlg(Algorithm.ES256);
 }
