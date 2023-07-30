@@ -24,23 +24,13 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // Parser exe
-    const parser = b.addExecutable(.{
-        .name = "parser",
-        .root_source_file = .{ .path = "parser/src/parser.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-
     const zjwt_module = b.addModule("zjwt", .{
         .source_file = .{ .path = "src/zjwt.zig" },
     });
 
     example.addModule("zjwt", zjwt_module);
-    parser.addModule("zjwt", zjwt_module);
 
     b.installArtifact(example);
-    b.installArtifact(parser);
     const run_cmd = b.addRunArtifact(example);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {

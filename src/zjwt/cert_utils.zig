@@ -72,7 +72,4 @@ test "rad cerificate" {
     const certificate = try certUtils.getCertificate();
 
     try std.testing.expectEqual(Certificate.Parsed.PubKeyAlgo.X9_62_id_ecPublicKey, certificate.pub_key_algo);
-
-    const pk = certificate.pubKey();
-    _ = pk;
 }

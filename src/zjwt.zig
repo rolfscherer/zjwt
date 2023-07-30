@@ -7,7 +7,6 @@ pub const validator = @import("zjwt/validator.zig");
 pub const utils = @import("zjwt/utils.zig");
 pub const key = @import("zjwt/key.zig");
 pub const cert_utils = @import("zjwt/cert_utils.zig");
-pub const parser = @import("zjwt/asn1/parser.zig");
 
 const mem = std.mem;
 const json = std.json;

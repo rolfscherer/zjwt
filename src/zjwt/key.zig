@@ -119,8 +119,3 @@ pub const ECPrivateKey = struct {
         return try Self.decode(stream.reader(), allocator);
     }
 };
-
-test "read private key" {
-    // const pk = try ECPrivateKey.fromDer("certs/ecdsa_prime256v1_onlypk.der", std.testing.allocator);
-    // _ = pk;
-}
