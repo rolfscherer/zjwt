@@ -68,7 +68,7 @@ test "basics" {
 test "rad cerificate and private key" {
     var certUtils = CertUtils.init(std.testing.allocator);
     defer certUtils.deinit();
-    try certUtils.loadCertificate("certs/ecdsa_secp384r1_cert.pem");
+    try certUtils.loadCertificate("certs/p384_cert.pem");
     const certificate = try certUtils.getCertificate();
 
     try std.testing.expectEqual(Certificate.Parsed.PubKeyAlgo.X9_62_id_ecPublicKey, certificate.pub_key_algo);

@@ -1,0 +1,22 @@
+RSA
+openssl req -x509 -newkey rsa:4096 -keyout rsa_256_key.pem -out rsa_256_cert.pem -sha256 -days 3650 -nodes -subj "/C=ch/ST=Bern/L=Lyss/O=Allerate/OU=rsa_256/CN=allerate.ch"
+
+ECDSA
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -x509 -nodes -days 3650 -out p256_cert.pem -keyout p256_key.pem -subj "/C=ch/ST=Bern/L=Lyss/O=p256/CN=allerate.ch"
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -x509 -nodes -days 3650 -out p384_cert.pem -keyout p384_key.pem -subj "/C=ch/ST=Bern/L=Lyss/O=p384/CN=allerate.ch"
+
+openssl ec -in p256_key.pem -outform DER -out p256_key.der
+openssl ec -in p384_key.pem -outform DER -out p384_key.der
+
+openssl ec -in p256_key.pem -pubout -outform DER -out p256_public_key.der
+openssl ec -in p384_key.pem -pubout -outform DER -out p384_public_key.der
+
+openssl ec -in p256_key.pem -no_public -outform DER -out p256_private_key.der
+openssl ec -in p384_key.pem -no_public -outform DER -out p384_private_key.der
+
+openssl ec -in p256_key.pem -text
+openssl asn1parse -in p256_key.pem 
+
+
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:brainpoolP384r1 -x509 -nodes -days 3650 -out ecdsa_P384_cert.pem -keyout ecdsa_P384_key.pem -subj "/C=ch/ST=Bern/L=Lyss/O=Allerate/OU=ecdsa_P384/CN=allerate.ch"
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:brainpoolP512r1 -x509 -nodes -days 3650 -out ecdsa_P512_cert.pem -keyout ecdsa_P512_key.pem -subj "/C=ch/ST=Bern/L=Lyss/O=Allerate/OU=ecdsa_P512/CN=allerate.ch"

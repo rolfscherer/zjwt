@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) void {
     // Parser exe
     const parser = b.addExecutable(.{
         .name = "parser",
-        .root_source_file = .{ .path = "example/src/parser.zig" },
+        .root_source_file = .{ .path = "parser/src/parser.zig" },
         .target = target,
         .optimize = optimize,
     });
@@ -41,7 +41,7 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(exe);
     b.installArtifact(parser);
-    const run_cmd = b.addRunArtifact(parser);
+    const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
         run_cmd.addArgs(args);

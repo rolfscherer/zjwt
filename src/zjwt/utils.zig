@@ -12,11 +12,11 @@ pub fn getSecondsFromMinutes(num: i64) i64 {
 }
 
 pub fn getSecondsFromHours(num: i64) i64 {
-    return num * 60 * 60;
+    return num * 3_600;
 }
 
 pub fn getSecondsFromDays(num: i64) i64 {
-    return num * 60 * 60 * 24;
+    return num * 86_400;
 }
 
 pub fn base64Encoder(source: []const u8, allocator: mem.Allocator) !std.ArrayList(u8) {
@@ -117,12 +117,32 @@ test "basics" {
     std.testing.refAllDecls(@This());
 }
 
+test "time test" {
+    var expected: i64 = 60 * 60 * 24;
+    try std.testing.expectEqual(expected, getSecondsFromDays(1));
+    expected = 60 * 60 * 2;
+    try std.testing.expectEqual(expected, getSecondsFromHours(2));
+    expected = 60 * -4;
+    try std.testing.expectEqual(expected, getSecondsFromMinutes(-4));
+}
+
 test "base 64 tests" {
     const text = "Hello world!";
 
     const encoded = try base64Encoder(text, std.testing.allocator);
     defer encoded.deinit();
     const decoded = try base64Decoder(encoded.items, std.testing.allocator);
+    defer decoded.deinit();
+
+    try std.testing.expectEqual(true, mem.eql(u8, text, decoded.items));
+}
+
+test "base 64 tests url safe no padding" {
+    const text = "Hello world!";
+
+    const encoded = try base64UrlEncoder(text, std.testing.allocator);
+    defer encoded.deinit();
+    const decoded = try base64UrlDecoder(encoded.items, std.testing.allocator);
     defer decoded.deinit();
 
     try std.testing.expectEqual(true, mem.eql(u8, text, decoded.items));
@@ -149,8 +169,4 @@ test "file tests with markesr" {
     defer arrayList.deinit();
     try std.testing.expectEqual(true, mem.eql(u8, text, arrayList.items));
     try std.testing.expectEqual({}, deleteFileRelative(fileName));
-}
-
-test "der to base64" {
-    try derToBase64("certs/ecdsa_prime256v1_onlypk.der", "certs/ecdsa_prime256v1_pk_der.pem", std.testing.allocator, "-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----");
 }

@@ -38,9 +38,49 @@ Encryption algorithms:
 -   [ ] ES512
 -   [ ] EdDSA
 
-This code contains various ideas from other projects. For example:
+## Create Token
+```zig
+fn createToken(alg: zjwt.Algorithm, signatureOptions: zjwt.SignatureOptions, buffer: *std.ArrayList(u8), allocator: Allocator) !void {
+    var j = zjwt.ZJwt.init(allocator);
 
-https://github.com/leroycep/zig-jwt
+    var token = zjwt.Token.init(allocator);
+    defer token.deinit();
 
-https://github.com/shiguredo/tls13-zig
+    // Builds the header as follows { "typ": "JWT", "alg": "HS256" }
+    try token.createDefaultHeader(alg);
 
+    // Builds the payload as follows { "iss": "zjwt", "sub": "username", "iat": 1690702984, "exp": 1690706584 }
+    try token.addIssuer(issuer);
+    try token.addSubject("username");
+    try token.addIssuedAt();
+    try token.addExpiresAt(3600);
+
+    // Encodes the header and the token to base64 and creates the signature using the chosen algorithm
+    try buffer.appendSlice(try j.encode(alg, signatureOptions, &token));
+}
+```
+
+## Validate Token
+```zig
+fn vlidateToken(alg: zjwt.Algorithm, signatureOptions: zjwt.SignatureOptions, tokenBase64: []const u8, allocator: Allocator) !void {
+    var j = zjwt.ZJwt.init(allocator);
+    var token = zjwt.Token.init(allocator);
+    defer token.deinit();
+
+    // The default header validator checks the algorithm and the type
+    var headerValidator = try zjwt.validator.createDefaultHeaderValidator(allocator, alg.phrase());
+    defer headerValidator.deinit();
+
+    // The default payload validator checks the issuer and the expiration time
+    var payloadValidator = try zjwt.validator.createDefaultPayloadValidator(allocator, issuer);
+
+    try j.decode(alg, signatureOptions, .{
+        .saveHeader = false, // Do not save the header
+        .savePayload = true, // Save the payload 
+        .headerValidator = headerValidator, // Validate the header
+        .payloadValidator = payloadValidator, // Validate the payload
+    }, tokenBase64, &token);
+
+    std.debug.print("Token validated for subject: {s}\n", .{token.payload.get(zjwt.Claims.SUBJECT).?.string});
+}
+```
