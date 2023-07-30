@@ -65,11 +65,14 @@ test "basics" {
     std.testing.refAllDecls(@This());
 }
 
-test "rad cerificate and private key" {
+test "rad cerificate" {
     var certUtils = CertUtils.init(std.testing.allocator);
     defer certUtils.deinit();
     try certUtils.loadCertificate("certs/p384_cert.pem");
     const certificate = try certUtils.getCertificate();
 
     try std.testing.expectEqual(Certificate.Parsed.PubKeyAlgo.X9_62_id_ecPublicKey, certificate.pub_key_algo);
+
+    const pk = certificate.pubKey();
+    _ = pk;
 }

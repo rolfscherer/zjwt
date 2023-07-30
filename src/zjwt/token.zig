@@ -72,8 +72,8 @@ pub fn init(allocator: Allocator) Token {
 pub fn deinit(token: *Token) void {
     token.header.deinit();
     token.payload.deinit();
-    token.arenaAllocator.deinit();
     token.tokenBase64.deinit();
+    token.arenaAllocator.deinit();
 }
 
 pub fn reset(token: *Token) void {
@@ -147,6 +147,31 @@ pub fn addJwtId(token: *Token, subject: []const u8) !void {
     try token.payload.put(Claims.JWT_ID, .{ .string = subject });
 }
 
+pub fn addArray(token: *Token, comptime T: type, key: []const u8, values: []const T) !void {
+    var array = std.ArrayList(Value).init(token.arenaAllocator.allocator());
+
+    for (values) |value| {
+        switch (@TypeOf(value)) {
+            i64 => try array.append(.{ .integer = value }),
+            f64 => try array.append(.{ .float = value }),
+            bool => try array.append(.{ .bool = value }),
+            else => try array.append(.{ .string = value }),
+        }
+    }
+
+    try token.addPayload(key, .{ .array = array });
+}
+
+pub fn getSubject(token: *Token) ?[]const u8 {
+    const value = token.payload.get(Claims.SUBJECT);
+
+    if (value) |val| {
+        return val.string;
+    }
+
+    return null;
+}
+
 // ++++++++
 // Miscs
 // ++++++++
@@ -192,4 +217,25 @@ pub fn getTimestamp(deltaInSeconds: i64) i64 {
 
 test "basics" {
     std.testing.refAllDecls(@This());
+}
+
+test "token memory test" {
+    var token1 = Token.init(std.testing.allocator);
+    defer token1.deinit();
+
+    var token2 = Token.init(std.testing.allocator);
+    defer token2.deinit();
+
+    try token1.createDefaultHeader(Algorithm.ES256);
+    try token1.addIssuer("adri");
+    try token1.addArray([]const u8, "roles", &[_][]const u8{ "admin", "user", "sales" });
+    try token1.addArray(i64, "slotes", &[_]i64{ 1, 2, 3, 4, 5 });
+
+    for (token1.header.keys()) |key| {
+        try token2.cloneAndAddHeader(key, token1.header.get(key).?);
+    }
+
+    for (token1.payload.keys()) |key| {
+        try token2.cloneAndAddPayload(key, token1.payload.get(key).?);
+    }
 }

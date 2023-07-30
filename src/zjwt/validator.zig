@@ -22,24 +22,6 @@ validatorItems: ValidatorItems,
 
 pub const Validator = @This();
 
-pub fn createDefaultHeaderValidator(allocator: Allocator, algorithm: []const u8) !Validator {
-    var validator = Validator.init(allocator);
-
-    try validator.addValidator(Headers.TYPE, .{ .eq = .{ .string = Headers.TYPE_JWT } });
-    try validator.addValidator(Headers.ALGORITHM, .{ .eq = .{ .string = algorithm } });
-
-    return validator;
-}
-
-pub fn createDefaultPayloadValidator(allocator: Allocator, issuer: []const u8) !Validator {
-    var validator = Validator.init(allocator);
-
-    try validator.addExpiresAtValidator();
-    try validator.addValidator(Claims.ISSUER, .{ .eq = .{ .string = issuer } });
-
-    return validator;
-}
-
 pub fn init(allocator: Allocator) Validator {
     return .{
         .allocator = allocator,
@@ -85,11 +67,57 @@ pub fn addValidator(validator: *Validator, key: []const u8, validatorOp: Validat
     });
 }
 
+pub fn createDefaultHeaderValidator(allocator: Allocator, algorithm: []const u8) !Validator {
+    var validator = Validator.init(allocator);
+
+    try validator.addValidator(Headers.TYPE, .{ .eq = .{ .string = Headers.TYPE_JWT } });
+    try validator.addValidator(Headers.ALGORITHM, .{ .eq = .{ .string = algorithm } });
+
+    return validator;
+}
+
+pub fn createDefaultPayloadValidator(allocator: Allocator, issuer: []const u8) !Validator {
+    var validator = Validator.init(allocator);
+
+    try validator.addExpiresAtValidator();
+    try validator.addValidator(Claims.ISSUER, .{ .eq = .{ .string = issuer } });
+
+    return validator;
+}
+
 pub fn addExpiresAtValidator(validator: *Validator) !void {
     try validator.validatorItems.append(.{
         .key = Claims.EXPIRES_AT,
         .validatorOp = .timestampGtNow,
     });
+}
+
+pub fn addExitsValidator(validator: *Validator, key: []const u8) !void {
+    try validator.addValidator(key, .{ .exists = {} });
+}
+
+pub fn addNotExitsValidator(validator: *Validator, key: []const u8) !void {
+    try validator.addValidator(key, .{ .notExists = {} });
+}
+
+pub fn addNotBeforeValidator(validator: *Validator) !void {
+    try validator.addValidator(Claims.NOT_BEFORE, .{ .timestampGt = std.time.timestamp() });
+}
+
+pub fn addEqualValidator(validator: *Validator, key: []const u8, value: Value) !void {
+    try validator.addValidator(key, .{ .eq = value });
+}
+
+pub fn addEqualStringValidator(validator: *Validator, key: []const u8, value: []const u8) !void {
+    try validator.addValidator(key, .{ .eq = .{ .string = value } });
+}
+
+pub fn addNotEqualValidator(validator: *Validator, key: []const u8, value: Value) !void {
+    try validator.addValidator(key, .{ .notEq = value });
+}
+
+pub fn addNotEqualStringValidator(validator: *Validator, key: []const u8, value: []const u8) !void {
+    try validator.addValidator(key, .{ .notEq = .{ .string = value } });
 }
 
 pub fn validate(validator: *const Validator, objectMap: ObjectMap) !void {
@@ -159,7 +187,61 @@ test "basics" {
     std.testing.refAllDecls(@This());
 }
 
-test "expectError default zig testheader validator " {
+test "exists validator" {
+    var vis = ValidatorItems.init(std.testing.allocator);
+    defer vis.deinit();
+
+    try vis.append(.{ .key = Claims.AUDIENCE, .validatorOp = .{ .exists = {} } });
+    try vis.append(.{ .key = Claims.JWT_ID, .validatorOp = .{ .exists = {} } });
+
+    var objectMap = ObjectMap.init(std.testing.allocator);
+    defer objectMap.deinit();
+
+    for (vis.items) |vi| {
+        var validator = Validator.init(std.testing.allocator);
+        defer validator.deinit();
+        try validator.validatorItems.append(vi);
+
+        // positive test
+        try objectMap.put(Claims.AUDIENCE, .{ .string = "public" });
+        try objectMap.put(Claims.JWT_ID, .{ .string = "1234567890" });
+        try std.testing.expectEqual({}, validator.validate(objectMap));
+
+        // negativ test
+        objectMap.clearRetainingCapacity();
+        try objectMap.put(Claims.ISSUER, .{ .string = "zjwt" });
+        try std.testing.expectError(error.ValidationError, validator.validate(objectMap));
+    }
+}
+
+test "notExists validator" {
+    var vis = ValidatorItems.init(std.testing.allocator);
+    defer vis.deinit();
+
+    try vis.append(.{ .key = Claims.AUDIENCE, .validatorOp = .{ .notExists = {} } });
+    try vis.append(.{ .key = Claims.JWT_ID, .validatorOp = .{ .notExists = {} } });
+
+    var objectMap = ObjectMap.init(std.testing.allocator);
+    defer objectMap.deinit();
+
+    for (vis.items) |vi| {
+        var validator = Validator.init(std.testing.allocator);
+        defer validator.deinit();
+        try validator.validatorItems.append(vi);
+
+        // positive test
+        try objectMap.put(Claims.ISSUER, .{ .string = "zjwt" });
+        try std.testing.expectEqual({}, validator.validate(objectMap));
+
+        // negativ test
+        objectMap.clearRetainingCapacity();
+        try objectMap.put(Claims.AUDIENCE, .{ .string = "public" });
+        try objectMap.put(Claims.JWT_ID, .{ .string = "1234567890" });
+        try std.testing.expectError(error.ValidationError, validator.validate(objectMap));
+    }
+}
+
+test "expectError default header validator " {
     var validator = try createDefaultHeaderValidator(std.testing.allocator, "HS256");
     defer validator.deinit();
 
@@ -180,6 +262,35 @@ test "expect no error. header validator " {
     try objectMap.put(Headers.TYPE, .{ .string = Headers.TYPE_JWT });
     try objectMap.put(Headers.ALGORITHM, .{ .string = alg });
 
+    try std.testing.expectEqual({}, validator.validate(objectMap));
+}
+
+test "expectError default payload validator " {
+    var validator = try createDefaultPayloadValidator(std.testing.allocator, "TEST");
+    defer validator.deinit();
+
+    var objectMap = ObjectMap.init(std.testing.allocator);
+    defer objectMap.deinit();
+
+    try objectMap.put(Claims.ISSUER, .{ .string = "TEST" });
+    try objectMap.put(Claims.EXPIRES_AT, .{ .integer = (std.time.timestamp() - 1) });
+    try std.testing.expectError(error.ValidationError, validator.validate(objectMap));
+
+    objectMap.clearRetainingCapacity();
+    try objectMap.put(Claims.ISSUER, .{ .string = "UPS" });
+    try objectMap.put(Claims.EXPIRES_AT, .{ .integer = (std.time.timestamp() + 1) });
+    try std.testing.expectError(error.ValidationError, validator.validate(objectMap));
+}
+
+test "ok default payload validator " {
+    var validator = try createDefaultPayloadValidator(std.testing.allocator, "TEST");
+    defer validator.deinit();
+
+    var objectMap = ObjectMap.init(std.testing.allocator);
+    defer objectMap.deinit();
+
+    try objectMap.put(Claims.ISSUER, .{ .string = "TEST" });
+    try objectMap.put(Claims.EXPIRES_AT, .{ .integer = (std.time.timestamp() + 1) });
     try std.testing.expectEqual({}, validator.validate(objectMap));
 }
 

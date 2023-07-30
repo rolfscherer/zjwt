@@ -113,6 +113,21 @@ pub fn derToBase64(subPathSource: []const u8, subPathDest: []const u8, allocator
     try writeFileRelativeWithMarkers(subPathDest, b64.items, beginMarker, endMarker);
 }
 
+pub fn createUUID(uuid: *[36]u8) ![]const u8 {
+    var noise: [128]u8 = undefined;
+    std.crypto.random.bytes(&noise);
+
+    var id: [16]u8 = undefined;
+    std.crypto.hash.sha3.TurboShake128(null).hash(&noise, &id, .{});
+    return try std.fmt.bufPrint(uuid, "{s}-{s}-{s}-{s}-{s}", .{
+        std.fmt.fmtSliceHexLower(id[0..4]),
+        std.fmt.fmtSliceHexLower(id[4..6]),
+        std.fmt.fmtSliceHexLower(id[6..8]),
+        std.fmt.fmtSliceHexLower(id[8..10]),
+        std.fmt.fmtSliceHexLower(id[10..]),
+    });
+}
+
 test "basics" {
     std.testing.refAllDecls(@This());
 }

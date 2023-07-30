@@ -1,9 +1,9 @@
 # JSON Web Tokens (JWT) library
 
-This library implement signing and verification of [JSON Web Tokens][], or JWTs,
-based on [RFC 7159][].
+This library implement signing and verification of [JSON Web Tokens], or JWTs,
+based on [RFC 7159].
 
-The library is implemented in the zig language and only uses the standard libraries.-
+The library is implemented in the zig language and only uses the standard libraries.
 
 [json web tokens]: https://jwt.io/
 [rfc 7159]: https://datatracker.ietf.org/doc/html/rfc7519
@@ -28,6 +28,7 @@ Encryption algorithms:
 -   [x] HS512
 -   [x] PS256
 -   [x] PS384
+<!---
 -   [ ] PS512
 -   [ ] RS256
 -   [ ] RS384
@@ -37,6 +38,7 @@ Encryption algorithms:
 -   [ ] ES384
 -   [ ] ES512
 -   [ ] EdDSA
+--->
 
 ## Create Token
 ```zig
@@ -84,3 +86,5 @@ fn vlidateToken(alg: zjwt.Algorithm, signatureOptions: zjwt.SignatureOptions, to
     std.debug.print("Token validated for subject: {s}\n", .{token.payload.get(zjwt.Claims.SUBJECT).?.string});
 }
 ```
+
+Here the whole example [github.com/rolfscherer/zjwt/blob/master/example/src/main.zig](https://github.com/rolfscherer/zjwt/blob/master/example/src/main.zig)

@@ -17,8 +17,8 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(lib);
 
     // Example exe
-    const exe = b.addExecutable(.{
-        .name = "zjwt",
+    const example = b.addExecutable(.{
+        .name = "example",
         .root_source_file = .{ .path = "example/src/main.zig" },
         .target = target,
         .optimize = optimize,
@@ -36,12 +36,12 @@ pub fn build(b: *std.Build) void {
         .source_file = .{ .path = "src/zjwt.zig" },
     });
 
-    exe.addModule("zjwt", zjwt_module);
+    example.addModule("zjwt", zjwt_module);
     parser.addModule("zjwt", zjwt_module);
 
-    b.installArtifact(exe);
+    b.installArtifact(example);
     b.installArtifact(parser);
-    const run_cmd = b.addRunArtifact(exe);
+    const run_cmd = b.addRunArtifact(example);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
         run_cmd.addArgs(args);

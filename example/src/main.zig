@@ -1,6 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const zjwt = @import("zjwt");
+const examples = @import("examples.zig");
 
 const secretKey = "veryS3cret:-)";
 const issuer = "zjwt";
@@ -59,10 +60,14 @@ pub fn main() !void {
     const allocator = std.heap.page_allocator;
     const alg = zjwt.Algorithm.HS256;
     try createAndValidateToken(alg, allocator);
+
+    // More examples
+    try examples.execExamples(allocator);
 }
 
 test "example test" {
     const allocator = std.testing.allocator;
     const alg = zjwt.Algorithm.HS256;
     try createAndValidateToken(alg, allocator);
+    try examples.execExamples(allocator);
 }

@@ -41,6 +41,7 @@ pub const Error = error{
 pub const SignatureOptions = struct {
     /// A secret (HS) , a secret key (EC) or a private key (RSA)
     key: []const u8,
+    publicKey: ?[]const u8 = null,
 };
 
 /// Options used when decoding
@@ -243,23 +244,27 @@ fn parseAndValidateSignature(jwt: *ZJwt, alg: Algorithm, signatureOptions: Signa
             if (!mem.eql(u8, signatureToken, signatureCalculated)) return error.InvalidSignature;
         },
         .ES256 => {
-            try validateEcdsaSignature(ecdsa.EcdsaP256Sha256, signatureOptions.key, tokenBase64, signatureToken);
+            try validateEcdsaSignature(ecdsa.EcdsaP256Sha256, signatureOptions, tokenBase64, signatureToken);
         },
         .ES384 => {
-            try validateEcdsaSignature(ecdsa.EcdsaP384Sha384, signatureOptions.key, tokenBase64, signatureToken);
+            try validateEcdsaSignature(ecdsa.EcdsaP384Sha384, signatureOptions, tokenBase64, signatureToken);
         },
     }
 }
 
-fn validateEcdsaSignature(ecdsFn: anytype, secretKey: []const u8, tokenBase64: []const u8, signatureToken: []const u8) !void {
-    const secretKeyInt = try getSecretKey(ecdsFn, secretKey);
-    const kp = try ecdsFn.KeyPair.fromSecretKey(secretKeyInt);
-
+fn validateEcdsaSignature(ecdsFn: anytype, signatureOptions: SignatureOptions, tokenBase64: []const u8, signatureToken: []const u8) !void {
     var sigBuffer: [ecdsFn.Signature.encoded_length]u8 = undefined;
     mem.copy(u8, sigBuffer[0..ecdsFn.Signature.encoded_length], signatureToken);
-
     const sig = ecdsFn.Signature.fromBytes(sigBuffer);
-    try sig.verify(tokenBase64, kp.public_key);
+
+    if (signatureOptions.publicKey) |publicKey| {
+        const pk = try ecdsFn.PublicKey.fromSec1(publicKey);
+        try sig.verify(tokenBase64, pk);
+    } else {
+        const secretKeyInt = try getSecretKey(ecdsFn, signatureOptions.key);
+        const kp = try ecdsFn.KeyPair.fromSecretKey(secretKeyInt);
+        try sig.verify(tokenBase64, kp.public_key);
+    }
 }
 
 test {
@@ -272,4 +277,32 @@ test {
     _ = @import("zjwt/cert_utils.zig");
     _ = @import("zjwt/key.zig");
     _ = @import("zjwt/asn1.zig");
+}
+
+test "ok encode and decode" {
+    var allocator = std.testing.allocator;
+
+    const alg = Algorithm.ES384;
+    var j = ZJwt.init(allocator);
+
+    var t = Token.init(allocator);
+    defer t.deinit();
+    try t.createDefaultHeader(alg);
+    try t.addIssuer("zjwt");
+    try t.addSubject("adri@adri.com");
+    try t.addIssuedAt();
+    try t.addExpiresAt(3600);
+
+    var tokenBase64 = std.ArrayList(u8).init(allocator);
+    defer tokenBase64.deinit();
+
+    try tokenBase64.appendSlice(try j.encode(alg, .{ .key = "secret" }, &t));
+    t.reset();
+
+    try j.decode(alg, .{ .key = "secret" }, .{
+        .saveHeader = true,
+        .savePayload = true,
+    }, tokenBase64.items, &t);
+
+    try std.testing.expect(mem.eql(u8, "adri@adri.com", t.getSubject().?));
 }
